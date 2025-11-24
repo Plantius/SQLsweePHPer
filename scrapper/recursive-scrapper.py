@@ -34,7 +34,7 @@ PAGE_SIZE = 100
 MAX_PAGES = 10
 ALLOW_DUPLICATE_WORDS = False
 MIN_GITHUB_STARS = int(os.getenv("MIN_GITHUB_STARS", 200))
-BASE_QUERY = "http.createServer fs read file path req.url"
+BASE_QUERY = "$_GET OR $_POST OR $_REQUEST OR $_COOKIE OR $_SERVER"
 
 
 def tokenize_code(content):
@@ -250,17 +250,66 @@ def pass_to_db(repo):
 def main_wip():
     read_state()
     LANGS = [
-        ("javascript", "js")
+        ("PHP", "php")
     ]
 
     next_query = BASE_QUERY
 
     for lang, extension in LANGS:
-        keywords = compute_tfidf("../downloads", extension)
-        keywords = keywords[::-1]
-        keywords = list(filter(lambda x: x[1] >= 0.401, keywords))
-        print(keywords)
-        print(len(keywords))
+        # keywords = compute_tfidf("../downloads", extension)
+        # keywords = keywords[::-1]
+        # keywords = list(filter(lambda x: x[1] >= 0.401, keywords))
+        # print(keywords)
+        # print(len(keywords))
+
+        keywords = [
+            "mysql_query",
+            "mysql_db_query",
+            "mysql_unbuffered_query",
+            "mysql_multi_query",
+
+            "mysqli_query",
+            "mysqli_multi_query",
+            "mysqli_real_query",
+
+            "->query(",
+            "->multi_query(",
+            "->real_query(",
+            "->exec(",
+
+            "pg_query",
+            "pg_send_query",
+
+            "sqlite_query",
+            "sqlite_exec",
+            "SQLite3::query",
+            "SQLite3::exec",
+
+            "oci_parse",
+            "oci_execute",
+
+            "$wpdb->query",
+            "$wpdb->get_results",
+            "$wpdb->get_row",
+            "$wpdb->get_var",
+
+            "SELECT",
+            "\"SELECT * FROM\"",
+            "\"INSERT INTO\"",
+            "\"UPDATE\"",
+            "\"DELETE FROM\"",
+            "\"REPLACE INTO\"",
+            "\"DROP TABLE\"",
+            "\"ALTER TABLE\"",
+            "\"CREATE TABLE\"",
+            "\"WHERE\"",
+
+            "sprintf(",
+            "vsprintf(",
+            "implode(",
+            "join(",
+        ]
+        keywords = [(k, 1) for k in keywords]
         for i, keyword in enumerate(keywords):
             print(keyword, i)
             try:

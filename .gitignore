@@ -166,3 +166,5 @@ executer/webapp/
 .venv
 .vscode
 .env_old
+
+.idea
