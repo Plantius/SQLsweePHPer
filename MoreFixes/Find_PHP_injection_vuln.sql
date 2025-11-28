@@ -16,4 +16,5 @@ WHERE
         OR LOWER(cve.description) LIKE '%injection%'
     )
     AND f.score >= 65
-    AND LOWER(cve.cve_id) LIKE 'cve-2024-%';
+    AND LOWER(cve.cve_id) LIKE 'cve-2024-%'
+    AND LOWER(cve.cvss3_base_severity) IN ('high', 'critical');
