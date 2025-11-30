@@ -15,7 +15,6 @@ import utils.database as db
 from utils.enums import *
 from utils.tools import gh_url_to_raw
 
-# Ensure that NLTK tokens are downloaded
 nltk.download("punkt")
 
 dotenv.load_dotenv()
@@ -33,10 +32,8 @@ MIN_GITHUB_STARS = int(os.getenv("MIN_GITHUB_STARS", 200))
 
 HEADER_WIDTH = 5
 
-# Base query focused on SQL injection input vectors
 BASE_QUERY = "$_GET OR $_POST OR $_REQUEST OR $_COOKIE"
 
-# SQL-related keywords and functions for boosting in TF-IDF
 SQL_INDICATORS = [
     "mysqli_query",
     "mysql_query",
@@ -75,7 +72,6 @@ SQL_INDICATORS = [
     "implode",
 ]
 
-# Known SQL injection pattern bases (will be combined with TF-IDF keywords)
 SQL_INJECTION_PATTERN_BASES = [
     # Direct MySQL/MySQLi functions
     "mysqli_query",
@@ -111,7 +107,6 @@ def tokenize_code(content):
     Tokenize PHP code while preserving SQL injection-relevant patterns.
     Captures SQL keywords, string concatenation, PHP variables, and function calls.
     """
-    # Patterns to preserve (using non-capturing groups (?:...) or no groups)
     function_call = r"\w+\s*\("
     php_superglobal = r"\$_(?:GET|POST|REQUEST|COOKIE|SERVER)\["
     php_variable = r"\$\w+"
@@ -119,21 +114,17 @@ def tokenize_code(content):
     string_concat = r'"\s*\.\s*|' + r"'\s*\.\s*"
     object_method = r"->\w+\s*\("
 
-    # Combine all patterns - use alternation without outer capturing group
-    combined = f"{sql_keyword}|{function_call}|{php_superglobal}|{php_variable}|{object_method}|{string_concat}|\w+"
+    combined = rf"{sql_keyword}|{function_call}|{php_superglobal}|{php_variable}|{object_method}|{string_concat}|\w+"
     tokenizer = RegexpTokenizer(combined)
     tokens = tokenizer.tokenize(content)
 
-    # Ensure tokens are strings (flatten if needed)
     flat_tokens = []
     for token in tokens:
         if isinstance(token, tuple):
-            # If it's a tuple, take the first non-empty element
             flat_tokens.append(next((t for t in token if t), ""))
         else:
             flat_tokens.append(token)
 
-    # Filter out common PHP keywords that don't indicate vulnerabilities
     php_keywords = {
         "if",
         "else",
@@ -209,14 +200,13 @@ def tokenize_code(content):
 def compute_tfidf(directory_path):
     """
     Compute TF-IDF for SQL injection vulnerable code sections.
-    Returns keywords that can be combined with known SQL injection patterns.
     """
     vectorizer = TfidfVectorizer(
         tokenizer=tokenize_code,
-        token_pattern=None,
+        token_pattern=None,  # type: ignore
         lowercase=True,
         binary=False,
-        ngram_range=(1, 4),  # Capture longer patterns
+        ngram_range=(1, 4),
         max_features=400,
         min_df=1,
         max_df=0.95,
@@ -231,7 +221,6 @@ def compute_tfidf(directory_path):
                 content = file.read()
                 line_count = len(content.split("\n"))
 
-                # Only process small snippets (vulnerable sections)
                 if line_count < 100:
                     file_contents.append(content)
                 else:
@@ -249,38 +238,31 @@ def compute_tfidf(directory_path):
             f"  Only {len(file_contents)} file(s) found - TF-IDF works best with multiple samples"
         )
 
-    # Fit the TF-IDF model
     tfidf_matrix = vectorizer.fit_transform(file_contents)
     sums = tfidf_matrix.sum(axis=0)
     terms = vectorizer.get_feature_names_out()
     scores = [(term, sums[0, idx]) for term, idx in zip(terms, range(sums.shape[1]))]
 
-    # Boost SQL injection-relevant terms
     boosted_scores = []
     for term, score in scores:
         boost = 1.0
 
-        # Strong boost for SQL functions/keywords
         if any(indicator in term.lower() for indicator in SQL_INDICATORS):
             boost = 4.0
 
-        # Extra boost for patterns combining user input + SQL
         if "$_" in term and any(
             sql in term.lower()
             for sql in ["query", "select", "where", "insert", "update", "delete"]
         ):
             boost = 5.0
 
-        # Boost string concatenation patterns
         if "." in term and "$" in term:
             boost = 3.5
 
         boosted_scores.append((term, score * boost))
 
-    # Sort by boosted score
     boosted_scores.sort(key=lambda x: x[1], reverse=True)
 
-    # Filter out base query terms and known pattern bases
     base_query_terms = {t.strip().lower() for t in BASE_QUERY.replace("OR", "").split()}
     known_patterns = {p.lower() for p in SQL_INJECTION_PATTERN_BASES}
 
@@ -314,7 +296,6 @@ def has_sqli_pattern(content):
     )
     has_concat = re.search(r'["\'].*?\.\s*\$_(GET|POST|REQUEST|COOKIE)', content)
 
-    # Check if using prepared statements properly
     has_prepare = re.search(r"\bprepare\s*\(", content, re.IGNORECASE)
     has_bind = re.search(
         r"\bbind(param|value|_param|_result)\s*\(", content, re.IGNORECASE
@@ -329,7 +310,6 @@ def has_sqli_pattern(content):
 
 
 def make_safe_filename(s):
-    """Create a safe filename by replacing invalid characters."""
     return re.sub(r"[^a-zA-Z0-9_\.-]", "_", s)
 
 
@@ -370,7 +350,6 @@ def search_code(query, page, items):
                 )
                 time.sleep(sleep_time)
 
-        # Check if there are more pages
         if page < MAX_PAGES and "Link" in response.headers:
             links = response.headers["Link"].split(", ")
             has_next = any('rel="next"' in link for link in links)
@@ -419,12 +398,10 @@ def read_state():
 def add_to_db(repo):
     """
     Add repository to database after validation.
-    No longer downloads files - just stores metadata.
     """
     repo_details = REPO_DETAILS[repo]
     repo_api_url = repo_details["repository"]["url"]
 
-    # Get repository metadata
     try:
         repo_data = get_repo_details(repo_api_url)
         stars = repo_data.get("stargazers_count", 0)
@@ -435,11 +412,9 @@ def add_to_db(repo):
     if stars < MIN_GITHUB_STARS:
         return False
 
-    # Prepare file details
     name_with_owner = repo_details["repository"]["full_name"]
     download_url = gh_url_to_raw(repo_details["html_url"])
 
-    # Verify file contains SQLi pattern
     try:
         response = requests.get(download_url, headers=HEADERS)
         response.raise_for_status()
@@ -460,16 +435,9 @@ def add_to_db(repo):
 def generate_combined_queries(tfidf_keywords, top_n_tfidf=30):
     """
     Generate queries by combining known SQL injection patterns with TF-IDF keywords.
-
-    Strategy: For each known SQLi pattern, combine it with top TF-IDF keywords
-    to create more specific and targeted queries.
-
-    Example: "mysqli_query" + "username" -> "mysqli_query username"
-    This finds code that uses mysqli_query with a username variable (likely vulnerable)
     """
     combined_queries = []
 
-    # Take top N TF-IDF keywords
     top_keywords = [kw for kw, score in tfidf_keywords[:top_n_tfidf]]
 
     logging.info(
@@ -478,10 +446,8 @@ def generate_combined_queries(tfidf_keywords, top_n_tfidf=30):
 
     for base_pattern in SQL_INJECTION_PATTERN_BASES:
         for tfidf_keyword in top_keywords:
-            # Create combined query: base_query + base_pattern + tfidf_keyword
             query = f"{BASE_QUERY} {base_pattern} {tfidf_keyword}"
 
-            # Skip if already tried
             if query not in TRIED_QUERIES:
                 combined_queries.append(
                     {"query": query, "base": base_pattern, "tfidf_kw": tfidf_keyword}
@@ -492,10 +458,6 @@ def generate_combined_queries(tfidf_keywords, top_n_tfidf=30):
 
 
 def main():
-    """
-    Single-phase approach: Combine known SQL injection patterns with TF-IDF keywords
-    to create highly specific and targeted search queries.
-    """
     read_state()
 
     logging.info("=" * HEADER_WIDTH)
@@ -503,10 +465,8 @@ def main():
     logging.info("Combined Pattern + TF-IDF Approach")
     logging.info("=" * HEADER_WIDTH)
 
-    # Step 1: Compute TF-IDF from existing vulnerable code sections
     logging.info("[Step 1] Computing TF-IDF from vulnerable code sections...")
     logging.info("-" * HEADER_WIDTH)
-
     tfidf_keywords = compute_tfidf("../MoreFixes/output")
 
     if not tfidf_keywords:
@@ -515,19 +475,15 @@ def main():
         )
         return
 
-    # Filter to high-scoring keywords
     tfidf_keywords = [k for k in tfidf_keywords if k[1] >= 0.3]
     logging.info(f"Extracted {len(tfidf_keywords)} high-value TF-IDF keywords")
 
-    # Display top keywords
     logging.info("Top 20 TF-IDF keywords:")
     for i, (keyword, score) in enumerate(tfidf_keywords[:20], 1):
-        logging.info(f"  {i:2d}. {keyword:40s} (score: {score:.3f})")
+        logging.info(f"  {i:2d}. {keyword} (score: {score:.3f})")
 
-    # Step 2: Generate combined queries
     logging.info("[Step 2] Generating combined queries...")
     logging.info("-" * HEADER_WIDTH)
-
     combined_queries = generate_combined_queries(tfidf_keywords, top_n_tfidf=30)
 
     if not combined_queries:
@@ -541,29 +497,24 @@ def main():
         )
         logging.info(f"     -> {query_info['query']}")
 
-    # Step 3: Execute combined queries
     logging.info(f"[Step 3] Executing {len(combined_queries)} combined queries...")
     logging.info("-" * HEADER_WIDTH)
 
     total_new_repos = 0
-
     for i, query_info in enumerate(combined_queries, 1):
-        query = query_info["query"]
-        base = query_info["base"]
-        tfidf_kw = query_info["tfidf_kw"]
-
-        logging.info(f"[{i}/{len(combined_queries)}] {base} + {tfidf_kw}")
-        TRIED_QUERIES.add(query)
+        logging.info(
+            f"[{i}/{len(combined_queries)}] {query_info['base']} + {query_info['tfidf_kw']}"
+        )
+        TRIED_QUERIES.add(query_info["query"])
 
         try:
             items = []
-            search_code(query, 1, items)
+            search_code(query_info["query"], 1, items)
 
             if not items:
                 logging.info("    No results")
                 continue
 
-            # Deduplicate by repository
             found = {}
             for item in items:
                 repo_name = item["repository"]["full_name"]
@@ -571,7 +522,6 @@ def main():
 
             logging.info(f"    Found {len(items)} items from {len(found)} repositories")
 
-            # Process new repositories
             new_repos = 0
             for repo_name, repo_data in found.items():
                 if repo_name not in REPOS:
@@ -585,7 +535,7 @@ def main():
                 logging.info(f"    Added {new_repos} new repos | Total: {len(REPOS)}")
 
             save_state()
-            time.sleep(2)  # Be nice to GitHub API
+            time.sleep(2)
 
         except Exception as e:
             logging.error(f"    Error: {e}")
