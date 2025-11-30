@@ -1,4 +1,7 @@
-SELECT DISTINCT (mc.code) 
+SELECT
+    DISTINCT mc.code
+    cwe.cwe_name
+    cwe.description
 FROM
     cve
     JOIN cwe_classification cc ON cc.cve_id = cve.cve_id
@@ -10,12 +13,12 @@ FROM
 WHERE
     fc.programming_language = 'PHP'
     AND (
-        LOWER(cwe.cwe_name) LIKE '%injection%'
-        OR LOWER(cwe.description) LIKE '%injection%'
-        OR LOWER(cwe.extended_description) LIKE '%injection%'
-        OR LOWER(cve.description) LIKE '%injection%'
+        LOWER(cwe.cwe_name) LIKE '%sql%'
+        OR LOWER(cwe.description) LIKE '%sql%'
+        OR LOWER(cwe.extended_description) LIKE '%sql%'
+        OR LOWER(cve.description) LIKE '%sql%'
     )
     AND f.score >= 65
+    AND mc.before_change = 'True'
     AND LOWER(cve.cve_id) LIKE 'cve-2024-%'
-    AND LOWER(cve.cvss3_base_severity) IN ('high', 'critical')
-    AND mc.before_change = 'True';
+    AND LOWER(cve.cvss3_base_severity) IN ('high', 'critical');

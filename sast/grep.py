@@ -11,22 +11,36 @@ from utils.tools import runcommand
 
 dotenv.load_dotenv("../.env")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
-DL_FILE_PATH = '/tmp/newscan.js'
+
+# Use .php so Semgrep treats it as PHP
+DL_FILE_PATH = '/tmp/newscan.php'
 timeCounter = 0
+
+# Use built-in PHP rulesets from the Semgrep Registry, focused on security/injection
 SEMGREP_CMD = """
-timeout 30 semgrep --config="r/javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal" --metrics=off --output /tmp/out.json --json $FILE 2>/dev/null >/dev/null
+timeout 30 semgrep \
+  --config=p/php \
+  --config=p/phpcs-security-audit \
+  --metrics=off \
+  --json --output /tmp/out.json \
+  $FILE 2>/dev/null >/dev/null
 """.strip()
+
 LOCK_FILENAME = "/tmp/0d-grep.running"
+
 
 def timing_start():
     global timeCounter
     timeCounter = int(time.time() * 1000)
 
+
 def timing_finish():
     return int(time.time() * 1000) - timeCounter
 
+
 def pick_lock():
     os.remove(LOCK_FILENAME)
+
 
 def main():
     while True:
@@ -36,23 +50,30 @@ def main():
             print("[*] Waiting for new projects ...")
             time.sleep(5)
             continue
+
         change_project_step(proj_id, STEP_SEMGREPING)
         timing_start()
 
+        # Download the PHP file
         with open(DL_FILE_PATH, 'wb') as f:
             f.write(requests.get(file_github_url).content)
+
+        # Run Semgrep with PHP rules
         exit_code, out, err = runcommand(SEMGREP_CMD.replace("$FILE", DL_FILE_PATH))
 
         logging.info(out)
         if err != "":
             logging.error(err)
+
         add_timing_to_project(proj_id, "semgrep", timing_finish())
+
         if exit_code == 0:
             logging.info("Semgrep ran successfully")
-            f = open("/tmp/out.json")
-            stuff = json.load(f)
-            f.close()
-            if len(stuff["results"]) > 0:
+            with open("/tmp/out.json") as f:
+                stuff = json.load(f)
+
+            if len(stuff.get("results", [])) > 0:
+                # Save all findings (includes injection-type issues)
                 save_semgrep_output(proj_id, json.dumps(stuff["results"]))
                 logging.info(f"Semgrep found a possible vuln in {proj_id}")
             else:
@@ -61,6 +82,7 @@ def main():
         else:
             pause_project(proj_id, PAUSED_SEMGREP_FAILED)
             logging.info("Semgrep failed")
+
         change_project_step(proj_id, STEP_SEMGREPED)
 
 
