@@ -1,11 +1,8 @@
 # SQLsweePHPer
 
-<p align="center">
-<img alt="Image" src="pipelineflow.png" />
-</p>
-
 SQLsweePHPer is a tool that automates SQL injection vulnerability discovery in public repositories on GitHub.
 At the moment, given documents, it produces strong keywords for GitHub search, allowing circumvention of its inherent limitations regarding number of results.
+
 This allows the tool to discover a vast number of repositories that could contain vulnerabilities.
 Once files are found within the scope of our interest, we run SemGrep to semantically consider whether these contain an actual vulnerability.
 Future research could be automated proof-of-concept generation.
