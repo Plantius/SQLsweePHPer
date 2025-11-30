@@ -44,7 +44,7 @@ def pick_lock():
 
 def main():
     while True:
-        proj_id, proj_filename, _, file_github_url = fetch_project_at_step(STEP_CLONED)
+        proj_id, proj_filename, _, file_github_url = fetch_project_at_step(STEP_ADDED)
 
         if proj_id is None or file_github_url is None:
             print("[*] Waiting for new projects ...")

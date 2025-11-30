@@ -343,7 +343,7 @@ def search_code(query, page, items):
         rate_limit_remaining = get_rate_limit_remaining(response.headers)
         if rate_limit_remaining <= 1:
             reset_time = get_rate_limit_reset_time(response.headers)
-            sleep_time = reset_time - time.time() + 5
+            sleep_time = reset_time - time.time() + 2  # Extra 2s buffer
             if sleep_time > 0:
                 logging.info(
                     f"    Rate limit reached. Sleeping for {int(sleep_time)}s..."
