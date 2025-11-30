@@ -1,0 +1,82 @@
+function upgrade_to_1_2_0() {
+	if (!db_column_exists('user_domains_ldap', 'cn_full_name')) {
+		db_install_execute("ALTER TABLE `user_domains_ldap`
+			ADD `cn_full_name` VARCHAR(50) NULL DEFAULT '',
+			ADD `cn_email` VARCHAR(50) NULL DEFAULT ''");
+	}
+
+	if (!db_column_exists('poller', 'max_time')) {
+		db_install_execute("ALTER TABLE poller
+			ADD COLUMN max_time DOUBLE DEFAULT NULL AFTER total_time,
+			ADD COLUMN min_time DOUBLE DEFAULT NULL AFTER max_time,
+			ADD COLUMN avg_time DOUBLE DEFAULT NULL AFTER min_time,
+			ADD COLUMN total_polls INT unsigned DEFAULT '0' AFTER avg_time,
+			ADD COLUMN processes INT unsigned DEFAULT '1' AFTER total_polls,
+			ADD COLUMN threads INT unsigned DEFAULT '1' AFTER processes");
+
+		// Take the value from the settings table and translate to
+		// the new Data Collector table settings
+
+		// Ensure value falls in line with what we expect for processes
+		$max_processes = read_config_option('concurrent_processes');
+		if ($max_processes < 1) $max_processes = 1;
+		if ($max_processes > 10) $max_processes = 10;
+
+		// Ensure value falls in line with what we expect for threads
+		$max_threads = read_config_option('max_threads');
+		if ($max_threads < 1) $max_threads = 1;
+		if ($max_threads > 100) $max_threads = 100;
+
+		db_install_execute("UPDATE poller SET processes = $max_processes, threads = $max_threads");
+	}
+
+	if (!db_column_exists('host', 'location')) {
+		db_install_execute("ALTER TABLE host
+			ADD COLUMN location VARCHAR(40) DEFAULT NULL AFTER hostname,
+			ADD INDEX site_id_location(site_id, location)");
+	}
+
+	if (!db_column_exists('poller', 'timezone')) {
+		db_install_execute("ALTER TABLE poller
+			ADD COLUMN `timezone` varchar(40) DEFAULT '' AFTER `status`");
+	}
+
+	if (!db_column_exists('poller_resource_cache', 'attributes')) {
+		db_install_execute("ALTER TABLE poller_resource_cache
+			ADD COLUMN `attributes` INT unsigned DEFAULT '0'");
+	}
+
+	if (!db_column_exists('external_links', 'refresh')) {
+		db_install_execute("ALTER TABLE external_links
+			ADD COLUMN `refresh` int unsigned default NULL");
+	}
+
+	if (!db_column_exists('automation_networks', 'same_sysname')) {
+		db_install_execute("ALTER TABLE automation_networks
+			ADD COLUMN `same_sysname` char(2) DEFAULT '' AFTER `add_to_cacti`");
+	}
+
+	db_install_execute("ALTER TABLE user_auth
+		MODIFY COLUMN password varchar(256) NOT NULL DEFAULT ''");
+
+	db_install_execute("ALTER TABLE graph_tree_items
+		MODIFY COLUMN sort_children_type tinyint(3) unsigned NOT NULL DEFAULT '0'");
+
+	db_install_execute('UPDATE graph_templates_graph
+		SET t_title="" WHERE t_title IS NULL or t_title="0"');
+
+	db_install_execute('UPDATE settings
+		SET name="log_validation" WHERE name="developer_mode"');
+
+	if (!db_column_exists('automation_networks', 'notification_enabled')) {
+		db_install_execute('ALTER TABLE automation_networks
+			ADD COLUMN notification_enabled char(2) default "" AFTER enabled,
+			ADD COLUMN notification_email varchar(255) default "" AFTER notification_enabled');
+	}
+
+	if (!db_column_exists('automation_networks', 'notification_fromname')) {
+		db_install_execute('ALTER TABLE automation_networks
+			ADD COLUMN notification_fromname varchar(32) default "" AFTER notification_email,
+			ADD COLUMN notification_fromemail varchar(128) default "" AFTER notification_fromname');
+	}
+}

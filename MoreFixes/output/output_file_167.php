@@ -1,0 +1,22 @@
+function hash_path($path,$addExt=false){
+	$password = 'kodcloud';
+	if(isset($GLOBALS['config']['settingSystem']['systemPassword'])){
+		$password = $GLOBALS['config']['settingSystem']['systemPassword'];
+	}
+
+	$pre = substr(md5($path.$password),0,8);
+	$result = $pre.md5($path);
+	if(file_exists($path)){
+		$result = $pre.md5($path.filemtime($path));
+		if(filesize($path) < 50*1024*1024){
+			$fileMd5 = @md5_file($path);
+			if($fileMd5){
+				$result = $fileMd5;
+			}
+		}
+	}
+	if($addExt){
+		$result = $result.'.'.get_path_ext($path);
+	}
+	return $result;
+}

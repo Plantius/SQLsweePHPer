@@ -1,0 +1,7 @@
+    public function cleanBean()
+    {
+        parent::cleanBean();
+        $this->pdfheader = purify_html($this->pdfheader);
+        $this->description = purify_html($this->description);
+        $this->pdffooter = purify_html($this->pdffooter);
+    }

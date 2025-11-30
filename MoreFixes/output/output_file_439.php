@@ -1,0 +1,4 @@
+    public function getQuerySelect()
+    {
+        return "R_{$this->id}.rank AS `$this->name`";
+    }
