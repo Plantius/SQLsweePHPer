@@ -61,9 +61,8 @@ def compute_tfidf(directory_path, lang):
     # Iterate over each file in the directory, reading the content and adding it to the list
     # for filename in os.listdir(directory_path):
     for filename in glob.glob(os.path.join(directory_path, f"*.{lang}")):
-        filepath = os.path.join(directory_path, filename)
-        if os.path.isfile(filepath):
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as file:
+        if os.path.isfile(filename):
+            with open(filename, "r", encoding="utf-8", errors="ignore") as file:
                 file_contents.append(file.read())
 
     # Fit the TF/IDF model
@@ -257,52 +256,12 @@ def main_wip():
     next_query = BASE_QUERY
 
     for lang, extension in LANGS:
-        keywords = compute_tfidf("../downloads", extension)
+        keywords = compute_tfidf("../MoreFixes/output", extension)
         keywords = keywords[::-1]
         keywords = list(filter(lambda x: x[1] >= 0.401, keywords))
         print(keywords)
-        print(len(keywords))
+        print("Number of keywords:", len(keywords))
 
-        # keywords = [
-        #     "mysql_query",
-        #     "mysql_db_query",
-        #     "mysql_unbuffered_query",
-        #     "mysql_multi_query",
-        #     "mysqli_query",
-        #     "mysqli_multi_query",
-        #     "mysqli_real_query",
-        #     "->query(",
-        #     "->multi_query(",
-        #     "->real_query(",
-        #     "->exec(",
-        #     "pg_query",
-        #     "pg_send_query",
-        #     "sqlite_query",
-        #     "sqlite_exec",
-        #     "SQLite3::query",
-        #     "SQLite3::exec",
-        #     "oci_parse",
-        #     "oci_execute",
-        #     "$wpdb->query",
-        #     "$wpdb->get_results",
-        #     "$wpdb->get_row",
-        #     "$wpdb->get_var",
-        #     "SELECT",
-        #     '"SELECT * FROM"',
-        #     '"INSERT INTO"',
-        #     '"UPDATE"',
-        #     '"DELETE FROM"',
-        #     '"REPLACE INTO"',
-        #     '"DROP TABLE"',
-        #     '"ALTER TABLE"',
-        #     '"CREATE TABLE"',
-        #     '"WHERE"',
-        #     "sprintf(",
-        #     "vsprintf(",
-        #     "implode(",
-        #     "join(",
-        # ]
-        # keywords = [(k, 1) for k in keywords]
         for i, keyword in enumerate(keywords):
             print(keyword, i)
             try:
